@@ -2,12 +2,7 @@ module github.com/pcfens/fireboard-exporter
 
 go 1.17
 
-replace github.com/pcfens/fireboard-exporter/pkg/fireboard => ./pkg/fireboard
-
-require (
-	github.com/pcfens/fireboard-exporter/pkg/fireboard v0.0.0-00010101000000-000000000000
-	github.com/prometheus/client_golang v1.11.0
-)
+require github.com/prometheus/client_golang v1.11.0
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/pcfens/fireboard-exporter/pkg/fireboard"
+	"github.com/pcfens/fireboard-exporter/internal/fireboard"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"

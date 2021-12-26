@@ -229,7 +229,7 @@ func (fc fireboard) updateMetrics(devices Devices, ch chan<- prometheus.Metric) 
 
 		for j := 0; j < len(devices[i].Channels); j++ {
 			channel := devices[i].Channels[j]
-			if channel.Enabled && &channel.CurrentTemp != nil {
+			if channel.Enabled && channel.CurrentTemp != 0 {
 				ch <- prometheus.MustNewConstMetric(
 					probeTemperature, prometheus.GaugeValue, channel.CurrentTemp, devices[i].Title, strconv.Itoa(j+1),
 				)
