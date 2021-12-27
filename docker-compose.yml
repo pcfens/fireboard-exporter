@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  fireboard-exporter:
+    build: .
+    image: ghcr.io/pcfens/fireboard-exporter:main
+    command:
+    - -key=292f783349256413248b7a132d34ba60d9c0faca
+
+  prometheus:
+    image: quay.io/prometheus/prometheus:v2.32.1
+    volumes:
+    - ./demo/config:/etc/prometheus:ro
+    ports:
+    - 9090:9090
