@@ -16,6 +16,12 @@ import (
 const namespace = "fireboard"
 
 var (
+	up = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "up"),
+		"Returns 1 if the fireboard is checking in with a temperature probe attached",
+		[]string{"fireboard_name"}, nil,
+	)
+
 	batteryVolts = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "battery_volts"),
 		"Battery voltage of the Fireboard",
@@ -25,7 +31,7 @@ var (
 	probeTemperature = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "probe_temperature_degrees"),
 		"Probe temperature in degrees. Units are dependent on Fireboard settings.",
-		[]string{"fireboard_name", "port_number"}, nil,
+		[]string{"fireboard_name", "channel"}, nil,
 	)
 
 	txPower = prometheus.NewDesc(
@@ -53,7 +59,8 @@ var (
 	)
 )
 
-type Devices []struct {
+type Devices []Device
+type Device struct {
 	UUID        string    `json:"uuid"`
 	ID          int       `json:"id"`
 	Title       string    `json:"title"`
@@ -179,6 +186,7 @@ func (fc fireboard) fireboardGet(url string) (string, error) {
 }
 
 func (fc fireboard) Describe(ch chan<- *prometheus.Desc) {
+	ch <- up
 	ch <- batteryVolts
 	ch <- probeTemperature
 	ch <- txPower
@@ -192,48 +200,56 @@ func (fc fireboard) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		log.Fatal((err))
 	}
-	fc.updateMetrics(devices, ch)
-}
-
-func (fc fireboard) updateMetrics(devices Devices, ch chan<- prometheus.Metric) {
 	for i := 0; i < len(devices); i++ {
-		ch <- prometheus.MustNewConstMetric(
-			batteryVolts, prometheus.GaugeValue, float64(devices[i].DeviceLog.VBatt), devices[i].Title,
-		)
 
-		ch <- prometheus.MustNewConstMetric(
-			txPower, prometheus.GaugeValue, float64(devices[i].DeviceLog.Txpower), devices[i].Title,
-		)
-
-		ch <- prometheus.MustNewConstMetric(
-			signalLevel, prometheus.GaugeValue, float64(devices[i].DeviceLog.Signallevel), devices[i].Title,
-		)
-
-		if devices[i].DeviceLog.Nightmode {
+		if len(devices[i].LatestTemps) > 0 {
 			ch <- prometheus.MustNewConstMetric(
-				nightMode, prometheus.GaugeValue, 1, devices[i].Title,
+				up, prometheus.GaugeValue, 1, devices[i].Title,
 			)
+			fc.updateMetrics(devices[i], ch)
 		} else {
 			ch <- prometheus.MustNewConstMetric(
-				nightMode, prometheus.GaugeValue, 0, devices[i].Title,
+				up, prometheus.GaugeValue, 0, devices[i].Title,
 			)
 		}
+	}
+}
 
-		currentCpu, err := strconv.Atoi(strings.Split(devices[i].DeviceLog.CPUUsage, "%")[0])
-		if err != nil {
-			log.Fatal(err)
-		}
+func (fc fireboard) updateMetrics(device Device, ch chan<- prometheus.Metric) {
+	ch <- prometheus.MustNewConstMetric(
+		batteryVolts, prometheus.GaugeValue, float64(device.DeviceLog.VBatt), device.Title,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		txPower, prometheus.GaugeValue, float64(device.DeviceLog.Txpower), device.Title,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		signalLevel, prometheus.GaugeValue, float64(device.DeviceLog.Signallevel), device.Title,
+	)
+
+	if device.DeviceLog.Nightmode {
 		ch <- prometheus.MustNewConstMetric(
-			cpuUsage, prometheus.GaugeValue, float64(currentCpu), devices[i].Title,
+			nightMode, prometheus.GaugeValue, 1, device.Title,
 		)
+	} else {
+		ch <- prometheus.MustNewConstMetric(
+			nightMode, prometheus.GaugeValue, 0, device.Title,
+		)
+	}
 
-		for j := 0; j < len(devices[i].Channels); j++ {
-			channel := devices[i].Channels[j]
-			if channel.Enabled && channel.CurrentTemp != 0 {
-				ch <- prometheus.MustNewConstMetric(
-					probeTemperature, prometheus.GaugeValue, channel.CurrentTemp, devices[i].Title, strconv.Itoa(j+1),
-				)
-			}
-		}
+	currentCpu, err := strconv.Atoi(strings.Split(device.DeviceLog.CPUUsage, "%")[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	ch <- prometheus.MustNewConstMetric(
+		cpuUsage, prometheus.GaugeValue, float64(currentCpu), device.Title,
+	)
+
+	for j := 0; j < len(device.LatestTemps); j++ {
+		channel := device.LatestTemps[j]
+		ch <- prometheus.MustNewConstMetric(
+			probeTemperature, prometheus.GaugeValue, channel.Temp, device.Title, strconv.Itoa(j+1),
+		)
 	}
 }
